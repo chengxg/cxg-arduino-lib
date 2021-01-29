@@ -1,14 +1,21 @@
 #include "cxg_Btn.h"
 
+CxgBtn::CxgBtn() {
+}
+
+CxgBtn::~CxgBtn() {
+  _resetFields();
+}
+
 /**
  * 绑定按钮引脚
  * @Author: chengxg
- * @Date: 2021-01-23
+ * @Date: 2021-01-27
  * @param {uint8_t} pin
  * @param {boolean} activeLevel 什么电平有效, 为:true是高电平有效,为:false是低电平有效,默认true
  * @param {boolean} pullupActive 引脚是否为输入上拉, 默认true
  */
-CxgBtn::CxgBtn(uint8_t pin, boolean activeLevel, boolean pullupActive) {
+void CxgBtn::attach(uint8_t pin, boolean activeLevel, boolean pullupActive) {
   this->pin = pin;
   this->activeLevel = activeLevel;
   this->pullupActive = pullupActive;
@@ -18,10 +25,6 @@ CxgBtn::CxgBtn(uint8_t pin, boolean activeLevel, boolean pullupActive) {
   } else {
     pinMode(pin, INPUT);
   }
-}
-
-CxgBtn::~CxgBtn() {
-  _resetFields();
 }
 
 //在loop循环中不断检查按钮状态

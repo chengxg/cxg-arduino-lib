@@ -3,6 +3,7 @@
  * 支持arduino uno, stm32, esp32 
  * @Author: chengxg
  * @Date: 2021-01-15
+ * version: 1.0.0
  */
 #ifndef CXG_BTN_H_
 #define CXG_BTN_H_
@@ -38,16 +39,18 @@ class CxgBtn {
   unsigned int btnDoubleTriggerTime = 800;      //双击触发时间, 在这个时间内完成点击2次
   unsigned int btnDebounceTime = 20;            //按键防抖延时时间
 
+  CxgBtn();
+  ~CxgBtn();
+
   /**
    * 绑定按钮引脚
    * @Author: chengxg
-   * @Date: 2021-01-23
+   * @Date: 2021-01-27
    * @param {uint8_t} pin
    * @param {boolean} activeLevel 什么电平有效, 为:true是高电平有效,为:false是低电平有效,默认true
    * @param {boolean} pullupActive 引脚是否为输入上拉, 默认true
    */
-  CxgBtn(uint8_t pin, boolean activeLevel = true, boolean pullupActive = true);
-  ~CxgBtn();
+  void attach(uint8_t pin, boolean activeLevel = true, boolean pullupActive = true);
 
   //循环检查状态
   void check();
