@@ -2,6 +2,7 @@
  * @Author: chengxg
  * @Date: 2021-01-23
  * @Description: LC12S无线模块设置操作库
+ * version: 1.0.0
  */
 #ifndef CXG_LC12S_H
 #define CXG_LC12S_H
@@ -35,10 +36,10 @@ class CxgLC12S {
    * @Description: 绑定串口,初始化参数
    * @param {HardwareSerial* serial} 硬串口引用
    * @param {uint32_t} baud 设置与lc12s的通信波特率
-   * @param {uint8_t} setpin 设置引脚, 如果没有绑定设置引脚,那么也就不要这个库了
+   * @param {uint8_t} setpin 设置引脚, 如果没有绑定设置引脚,那么也就不需要这个库了
    * //因为设置模块时使用9600的波特率,正常通信时是别的波特率,需要动态改变波特率
    * @param {void (*)(HardwareSerial* serial, uint32_t baud)} changeBaud 串口更改波特率的方法, 不同的平台更改方法不一样,需要自定义实现
-   * @param {uint8_t} cspin 片选使能引脚, 低电平使能
+   * @param {uint8_t} cspin 片选使能引脚, 低电平使能, 可以不绑定使能引脚, 不绑定传255
    */
   void attach(HardwareSerial* serial, uint32_t baud, uint8_t setpin, void (*changeBaud)(HardwareSerial* serial, uint32_t baud), uint8_t cspin = 255);
   //使能模块

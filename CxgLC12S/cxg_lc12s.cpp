@@ -1,7 +1,6 @@
 #include "cxg_lc12s.h"
 
-static JSTime jsTime;
-static CxgLC12S* lc12s;  //当前对象的临时全局引用
+static JSTime jsTime(0);
 
 //生成校验码
 uint8_t getCheckCode(uint8_t* buf) {
@@ -156,17 +155,25 @@ void CxgLC12S::syncParams() {
   if(cspin != 255) {
     digitalWrite(cspin, 0);
   }
-  lc12s = this;
   isSetting = true;
   //写入指令
-  jsTime.setTimeout([]() {
+  jsTime.setTimeout([](int p1, void* p2) {
+    CxgLC12S* lc12s = ( CxgLC12S* )p2;
+    if(lc12s == NULL) {
+      return;
+    }
     //查询参数指令
     uint8_t buf[18] = {
       0xAA, 0x5C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x00, 0x18};
     lc12s->serial->write(buf, 18);
     //参数读取需要5ms才能返回
-    jsTime.setTimeout([]() {
+    jsTime.setTimeout([](int p1, void* p2) {
+      CxgLC12S* lc12s = ( CxgLC12S* )p2;
+      if(lc12s == NULL) {
+        return;
+      }
+
       uint8_t readBuf[18] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -195,9 +202,9 @@ void CxgLC12S::syncParams() {
         }
       }
     },
-      400);
+      400, 0, lc12s);
   },
-    10);
+    10, 0, this);
 }
 
 //设置lc12s
@@ -210,15 +217,22 @@ void CxgLC12S::setLc12s() {
   if(cspin != 255) {
     digitalWrite(cspin, 0);
   }
-  lc12s = this;
   setBuf[17] = getCheckCode(setBuf);
   isSetting = true;
 
   //写入指令
-  jsTime.setTimeout([]() {
+  jsTime.setTimeout([](int p1, void* p2) {
+    CxgLC12S* lc12s = ( CxgLC12S* )p2;
+    if(lc12s == NULL) {
+      return;
+    }
     lc12s->serial->write(lc12s->setBuf, 18);
     //参数写入需要330ms才能返回
-    jsTime.setTimeout([]() {
+    jsTime.setTimeout([](int p1, void* p2) {
+      CxgLC12S* lc12s = ( CxgLC12S* )p2;
+      if(lc12s == NULL) {
+        return;
+      }
       uint8_t readBuf[18] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -244,9 +258,9 @@ void CxgLC12S::setLc12s() {
         }
       }
     },
-      400);
+      400, 0, lc12s);
   },
-    10);
+    10, 0, this);
 }
 
 //得到版本
@@ -256,17 +270,25 @@ void CxgLC12S::getVersion() {
   if(cspin != 255) {
     digitalWrite(cspin, 0);
   }
-  lc12s = this;
   isSetting = true;
   //写入指令
-  jsTime.setTimeout([]() {
+  jsTime.setTimeout([](int p1, void* p2) {
+    CxgLC12S* lc12s = ( CxgLC12S* )p2;
+    if(lc12s == NULL) {
+      return;
+    }
     //查询版本号指令
     uint8_t buf[18] = {
       0xAA, 0x5D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07};
     lc12s->serial->write(buf, 18);
     //参数读取需要5ms才能返回
-    jsTime.setTimeout([]() {
+    jsTime.setTimeout([](int p1, void* p2) {
+      CxgLC12S* lc12s = ( CxgLC12S* )p2;
+      if(lc12s == NULL) {
+        return;
+      }
+
       uint8_t readBuf[3] = {0x00, 0x00, 0x00};
       int i = 0;
       //写入成功会返回 02 00 05（HEX 格式）
@@ -296,7 +318,7 @@ void CxgLC12S::getVersion() {
         }
       }
     },
-      400);
+      400, 0, lc12s);
   },
-    10);
+    10, 0, this);
 }
