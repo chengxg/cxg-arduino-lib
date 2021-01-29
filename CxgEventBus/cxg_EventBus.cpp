@@ -1,62 +1,74 @@
 #include "cxg_EventBus.h"
 
-CxgEventBus::CxgEventBus() {
-  eventBusArrLen = 4;
-  eventBusArr = ( struct EventBusStruct** )malloc(sizeof(struct EventBusStruct*) * eventBusArrLen);
-  for(int i = 0; i < eventBusArrLen; i++) {
-    eventBusArr[i] = NULL;
+CxgEventBus::CxgEventBus(int intSize = 1) {
+  if(intSize > 10) {
+    intSize = 10;
+  }
+  if(intSize < 0) {
+    intSize = 0;
+  }
+  arrLen = intSize;
+  arr = ( struct EventBusStruct** )malloc(sizeof(struct EventBusStruct*) * arrLen);
+  if(arr != NULL) {
+    for(int i = 0; i < arrLen; i++) {
+      arr[i] = NULL;
+    }
   }
 }
 
 CxgEventBus::~CxgEventBus() {
-  for(int i = 0; i < eventBusArrLen; i++) {
-    if(eventBusArr[i] != NULL) {
-      free(eventBusArr[i]);
-    }
-  }
-  free(eventBusArr);
-  eventBusNum = 0;
-  eventBusArrLen = 0;
+  clearAll();
 }
 
-void CxgEventBus::setSize() {
+bool CxgEventBus::setSize() {
   //扩容
-  if(eventBusNum > eventBusArrLen) {
-    int newEventBusLen = eventBusArrLen + eventBusArrLen * 0.5;
-    struct EventBusStruct** newEventBusArr = ( struct EventBusStruct** )malloc(
-      sizeof(struct EventBusStruct*) * newEventBusLen);
-
-    for(int i = 0; i < newEventBusLen; i++) {
-      if(i < eventBusArrLen) {
-        newEventBusArr[i] = eventBusArr[i];
+  if(num > arrLen) {
+    int newArrLen = arrLen + arrLen * 0.5 + 1;
+    struct EventBusStruct** newArr = ( struct EventBusStruct** )malloc(
+      sizeof(struct EventBusStruct*) * newArrLen);
+    if(newArr == NULL) {
+      //申请内存失败
+      return false;
+    }
+    for(int i = 0; i < newArrLen; i++) {
+      if(i < arrLen) {
+        newArr[i] = arr[i];
       } else {
-        newEventBusArr[i] = NULL;
+        newArr[i] = NULL;
       }
     }
-    free(eventBusArr);
-    eventBusArr = newEventBusArr;
-    eventBusArrLen = newEventBusLen;
+    if(arr != NULL) {
+      free(arr);
+    }
+    arr = newArr;
+    arrLen = newArrLen;
   }
 
   //缩容
-  if((eventBusArrLen / 2 >= 4) && eventBusNum <= eventBusArrLen / 4) {
-    int newEventBusLen = eventBusArrLen / 2;
-    struct EventBusStruct** newEventBusArr = ( struct EventBusStruct** )malloc(
-      sizeof(struct EventBusStruct*) * newEventBusLen);
+  if((arrLen / 2 >= 4) && num <= arrLen / 4) {
+    int newArrLen = arrLen / 2;
+    struct EventBusStruct** newArr = ( struct EventBusStruct** )malloc(
+      sizeof(struct EventBusStruct*) * newArrLen);
 
-    for(int i = 0; i < newEventBusLen; i++) {
-      newEventBusArr[i] = NULL;
+    if(newArr == NULL) {
+      //申请内存失败
+      return false;
+    }
+    for(int i = 0; i < newArrLen; i++) {
+      newArr[i] = NULL;
     }
     int j = 0;
-    for(int i = 0; i < eventBusArrLen; i++) {
-      if(eventBusArr[i] != NULL) {
-        newEventBusArr[j] = eventBusArr[i];
+    for(int i = 0; i < arrLen; i++) {
+      if(arr[i] != NULL) {
+        newArr[j] = arr[i];
         j++;
       }
     }
-    free(eventBusArr);
-    eventBusArr = newEventBusArr;
-    eventBusArrLen = newEventBusLen;
+    if(arr != NULL) {
+      free(arr);
+    }
+    arr = newArr;
+    arrLen = newArrLen;
   }
 }
 
@@ -68,31 +80,37 @@ bool CxgEventBus::addEvent(char* name, void (*callback)(void* parameter), bool i
   event->callback = callback;
   event->name = name;
   event->isOnce = isOnce;
-  eventBusNum++;
+  num++;
 
   if(cover) {
-    for(int i = 0; i < eventBusArrLen; i++) {
+    for(int i = 0; i < arrLen; i++) {
       //清空已经存在的事件
-      if(eventBusArr[i] != NULL) {
-        if(strcmp(eventBusArr[i]->name, name) == 0) {
-          free(eventBusArr[i]);
-          eventBusArr[i] = NULL;
-          eventBusNum--;
+      if(arr[i] != NULL) {
+        if(strcmp(arr[i]->name, name) == 0) {
+          free(arr[i]);
+          arr[i] = NULL;
+          num--;
         }
       }
     }
   }
 
-  setSize();
-  for(int i = 0; i < eventBusArrLen; i++) {
+  bool isSuccess = setSize();
+  if(!isSuccess) {
+    free(event);
+    num--;
+    return false;
+  }
+
+  for(int i = 0; i < arrLen; i++) {
     //添加到数组中
-    if(eventBusArr[i] == NULL) {
-      eventBusArr[i] = event;
+    if(arr[i] == NULL) {
+      arr[i] = event;
       return true;
     }
   }
   free(event);
-  eventBusNum--;
+  num--;
   return false;
 }
 
@@ -105,14 +123,14 @@ bool CxgEventBus::once(char* name, void (*callback)(void* parameter), bool cover
 }
 
 void CxgEventBus::emit(char* name, void* parameter) {
-  for(int i = 0; i < eventBusArrLen; i++) {
-    if(eventBusArr[i] != NULL && eventBusArr[i]->callback != NULL) {
-      if(strcmp(eventBusArr[i]->name, name) == 0) {
-        eventBusArr[i]->callback(parameter);
-        if(eventBusArr[i]->isOnce) {
-          free(eventBusArr[i]);
-          eventBusArr[i] = NULL;
-          eventBusNum--;
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL && arr[i]->callback != NULL) {
+      if(strcmp(arr[i]->name, name) == 0) {
+        arr[i]->callback(parameter);
+        if(arr[i]->isOnce) {
+          free(arr[i]);
+          arr[i] = NULL;
+          num--;
         }
       }
     }
@@ -120,24 +138,31 @@ void CxgEventBus::emit(char* name, void* parameter) {
 }
 
 void CxgEventBus::off(char* name, void (*callback)(void* parameter)) {
-  for(int i = 0; i < eventBusArrLen; i++) {
-    if(eventBusArr[i] != NULL && eventBusArr[i]->callback != NULL) {
-      if(strcmp(eventBusArr[i]->name, name) == 0 && eventBusArr[i]->callback == callback) {
-        free(eventBusArr[i]);
-        eventBusArr[i] = NULL;
-        eventBusNum--;
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL && arr[i]->callback != NULL) {
+      if(strcmp(arr[i]->name, name) == 0 && arr[i]->callback == callback) {
+        free(arr[i]);
+        arr[i] = NULL;
+        num--;
       }
     }
   }
 }
 
-void CxgEventBus::clear() {
-  for(int i = 0; i < eventBusArrLen; i++) {
-    if(eventBusArr[i] != NULL) {
-      free(eventBusArr[i]);
-      eventBusArr[i] = NULL;
+void CxgEventBus::clearAll() {
+  if(arrLen == 0) {
+    return;
+  }
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL) {
+      free(arr[i]);
+      arr[i] = NULL;
     }
   }
-  eventBusNum = 0;
-  setSize();
+  if(arr != NULL) {
+    free(arr);
+  }
+  arr = NULL;
+  num = 0;
+  arrLen = 0;
 }

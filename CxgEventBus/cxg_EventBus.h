@@ -16,15 +16,16 @@ struct EventBusStruct {
 
 class CxgEventBus {
   private:
-  int eventBusArrLen = 4;
-  int eventBusNum = 0;
+  int arrLen = 0;
+  int num = 0;
 
-  struct EventBusStruct** eventBusArr;
-  void setSize();
+  struct EventBusStruct** arr;
+  bool setSize();
   bool CxgEventBus::addEvent(char* name, void (*callback)(void* parameter), bool isOnce, bool cover);
 
   public:
-  CxgEventBus();
+  //预先初始化事件的数量,默认为1个
+  CxgEventBus(int intSize = 1);
   ~CxgEventBus();
   //绑定事件
   //name: 事件名
@@ -44,7 +45,7 @@ class CxgEventBus {
   //callback: 回调函数
   void off(char* name, void (*callback)(void* parameter));
   //清空所有事件
-  void clear();
+  void clearAll();
 };
 
 #endif
