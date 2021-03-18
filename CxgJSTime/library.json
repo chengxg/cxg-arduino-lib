@@ -1,0 +1,11 @@
+{
+  "name": "CxgJSTime",
+  "keywords": "arduino, setTimeout, setInterval, no delay",
+  "description": "like setTimeout and setInterval in javascript, no delay execution procedure",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chengxg/CxgJSTime"
+  },
+  "frameworks": "arduino",
+  "platforms": "*"
+}

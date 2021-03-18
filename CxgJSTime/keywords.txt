@@ -1,0 +1,12 @@
+# class (KEYWORD1)
+JSTime	KEYWORD1
+
+# function and method (KEYWORD2)
+refresh	KEYWORD2
+setTimeout	KEYWORD2
+setInterval	KEYWORD2
+clearTime	KEYWORD2
+getNumber	KEYWORD2
+getHeapMemorySize	KEYWORD2
+
+# Constants (LITERAL1)
