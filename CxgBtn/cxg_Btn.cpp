@@ -27,10 +27,20 @@ void CxgBtn::attach(uint8_t pin, boolean activeLevel, boolean pullupActive) {
   }
 }
 
-//在loop循环中不断检查按钮状态
-void CxgBtn::check() {
+/**
+ * 在loop循环中不断检查按钮状态
+ * @Author: chengxg
+ * @Date: 2021-01-27
+ * @param {function} setBtnActive 默认NULL 获取按钮的状态,用于不绑定实际引脚时
+ */
+void CxgBtn::check(boolean (*setBtnActive)()) {
   //是否按下
-  boolean isActive = digitalRead(pin) == activeLevel;
+  boolean isActive = true;
+  if(setBtnActive != NULL) {
+    isActive = setBtnActive() == activeLevel;
+  } else {
+    isActive = digitalRead(pin) == activeLevel;
+  }
   unsigned long t = millis();  //当前时间
 
   //按下
@@ -44,7 +54,9 @@ void CxgBtn::check() {
       btnDownStartTime = t;
       isKeydown = true;
       clickCount++;
-      //记录双击开始时间
+      if(t - btnDoubleClickStartTime > btnDoubleTriggerTime / 2) {
+        clickCount = 1;
+      }
       if(clickCount == 1) {
         btnDoubleClickStartTime = t;
       }
@@ -80,20 +92,19 @@ void CxgBtn::check() {
       btnTempUpStartTime = 0;
       btnLongPressLastTime = 0;
       isKeydown = false;
-      //第二次单击抬起, 检测是否为双击
-      if(clickCount == 2) {
-        clickCount = 0;
-        if(doubleClickCallback != NULL && t - btnDoubleClickStartTime < btnDoubleTriggerTime) {
-          doubleClickCallback();
-        }
-      }
-      //如果一次单击时间超长,那么双击无效
-      if(t - btnDoubleClickStartTime > btnDoubleTriggerTime / 2) {
-        clickCount = 0;
-      }
       //单击抬起
       if(keyupCallback != NULL) {
         keyupCallback();
+      }
+      //双击
+      if(doubleClickCallback != NULL) {
+        if(clickCount == 2) {
+          if(t - btnDoubleClickStartTime < btnDoubleTriggerTime) {
+            doubleClickCallback();
+          }
+          clickCount = 0;
+          btnDoubleClickStartTime = 0;
+        }
       }
     }
     return;

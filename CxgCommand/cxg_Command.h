@@ -14,17 +14,20 @@
 
 class CxgCommand {
   private:
-  byte* startBuff;
+  byte* startBuff = NULL;
   int startSize = 0;
-  byte* endBuff;
+  byte* endBuff = NULL;
   int endSize = 0;
-  byte* buff;
+  byte* buff = NULL;
   int buffSize = 0;
   int count = 0;
-  bool isStart;
+  bool isStart = false;
 
-  void (*resolveCommandCallback)(byte* buff, int startIndex, int length);
-  void (*sendCommandCallback)(byte* buff, int length);
+  void (*resolveCommandCallback)(byte* buff, int startIndex, int length) = NULL;
+  void (*resolveCommandParamCallback)(byte* buff, int startIndex, int length, void* param) = NULL;
+  void* resolveCommandCallbackParameter = NULL;
+
+  void (*sendCommandCallback)(byte* buff, int length) = NULL;
 
   bool checkCommand(int checkIndex);
   bool isMatchStart(int compareIndex);
@@ -42,9 +45,9 @@ class CxgCommand {
   bool setBufferSize(unsigned int size);
   //设置解析到数据的回调
   void setResolveCommandCallback(void (*resolveCommand)(byte* buff, int startIndex, int length));
+  void setResolveCommandParamCallback(void (*resolveCommand)(byte* buff, int startIndex, int length, void* param), void* param);
   //设置发送数据的回调实现方式, 比如通过串口发送,i2c,spi发送等
   void setSendCommandCallback(void (*sendCommand)(byte* buff, int length));
-
   //往里添加数据进行解析
   void addData(byte data);
   //发送指令

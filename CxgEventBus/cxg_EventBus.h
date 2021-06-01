@@ -9,9 +9,9 @@
 #include "Arduino.h"
 
 struct EventBusStruct {
-  char* name;
+  char* name = NULL;
   bool isOnce = false;  //是否只执行一次
-  void (*callback)(void* parameter);
+  void (*callback)(void* parameter) = NULL;
 };
 
 class CxgEventBus {
@@ -19,9 +19,9 @@ class CxgEventBus {
   int arrLen = 0;
   int num = 0;
 
-  struct EventBusStruct** arr;
+  struct EventBusStruct** arr = NULL;
   bool setSize();
-  bool CxgEventBus::addEvent(char* name, void (*callback)(void* parameter), bool isOnce, bool cover);
+  bool addEvent(char* name, void (*callback)(void* parameter), bool isOnce, bool cover);
 
   public:
   //预先初始化事件的数量,默认为1个
@@ -46,6 +46,11 @@ class CxgEventBus {
   void off(char* name, void (*callback)(void* parameter));
   //清空所有事件
   void clearAll();
+
+  //获取活动事件的总数
+  int getNumber();
+  //获取所有事件结构体占用的内存大小
+  int getHeapMemorySize();
 };
 
 #endif

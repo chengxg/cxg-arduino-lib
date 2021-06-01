@@ -1,8 +1,11 @@
 /*
  *NEC红外遥控编码
  *不使用额外的定时来进行时间测量, 仅使用1个支持外部中断的即可。
- *原理, 利用上升沿中断记录两次上升沿时间间隔来判断
- *引导码, 重复码, 数字1和数字0
+ *原理, 利用上升沿中断记录两次上升沿时间间隔来判断 引导码, 重复码, 数字1和数字0
+ *支持arduino uno, stm32, esp32 
+ * @Author: chengxg
+ * @Date: 2021-01-15
+ * version: 1.0.0
  */
 #ifndef CXG_IRremote_H
 #define CXG_IRremote_H

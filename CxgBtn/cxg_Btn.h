@@ -15,7 +15,6 @@ class CxgBtn {
   unsigned long btnTempDownStartTime;     //开始按下的时间
   unsigned long btnTempUpStartTime;       //开始按下的时间
   unsigned long btnDownStartTime;         //开始按下的时间
-  unsigned long btnUpStartTime;           //开始按下的时间
   unsigned long btnLongPressLastTime;     //上次长按触发的时间
   unsigned long btnDoubleClickStartTime;  //双击开始时间
 
@@ -26,17 +25,17 @@ class CxgBtn {
   boolean isKeydown = false;    //是否按下
 
   //保存回调引用
-  void (*keydownCallback)();
-  void (*keyupCallback)();
-  void (*longPressCallback)();
-  void (*doubleClickCallback)();
+  void (*keydownCallback)() = NULL;
+  void (*keyupCallback)() = NULL;
+  void (*longPressCallback)() = NULL;
+  void (*doubleClickCallback)() = NULL;
 
   void _resetFields();
 
   public:
   unsigned int btnLongPressInterval = 200;      //长按间隔时间, 每过一段时间触发一次长按回调
   unsigned int btnLongPressTriggerTime = 2000;  //长按触发时间
-  unsigned int btnDoubleTriggerTime = 800;      //双击触发时间, 在这个时间内完成点击2次
+  unsigned int btnDoubleTriggerTime = 800;      //双击触发时间, 在这个时间内点击下一次就触发双击
   unsigned int btnDebounceTime = 20;            //按键防抖延时时间
 
   CxgBtn();
@@ -53,7 +52,7 @@ class CxgBtn {
   void attach(uint8_t pin, boolean activeLevel = true, boolean pullupActive = true);
 
   //循环检查状态
-  void check();
+  void check(boolean (*setBtnActive)() = NULL);
 
   //按键按下回调
   void setBtnKeydown(void (*keydown)());

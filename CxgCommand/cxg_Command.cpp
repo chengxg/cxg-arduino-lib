@@ -3,9 +3,9 @@
 CxgCommand::CxgCommand() {}
 
 CxgCommand::~CxgCommand() {
-  if(startBuff != NULL) {
-    free(startBuff);
-    startBuff = NULL;
+  if(buff != NULL) {
+    free(buff);
+    buff = NULL;
   }
   if(startBuff != NULL) {
     free(startBuff);
@@ -91,11 +91,18 @@ void CxgCommand::setResolveCommandCallback(void (*resolveCommand)(byte* buff, in
   this->resolveCommandCallback = resolveCommand;
 }
 
+void CxgCommand::setResolveCommandParamCallback(void (*resolveCommand)(byte* buff, int startIndex, int length, void* param), void* param) {
+  this->resolveCommandParamCallback = resolveCommand;
+  this->resolveCommandCallbackParameter = param;
+}
+
 void CxgCommand::setSendCommandCallback(void (*sendCommand)(byte* buff, int length)) {
   this->sendCommandCallback = sendCommand;
 }
 
 void CxgCommand::addData(byte data) {
+  Serial.print(data, HEX);
+  Serial.print(" ");
   if(!isStart) {
     if(count == 0 && data != *startBuff) {
       return;
@@ -107,6 +114,13 @@ void CxgCommand::addData(byte data) {
       bool isMatch = isMatchStart(count - startSize);
       if(isMatch) {
         isStart = true;
+        Serial.print("st:");
+        Serial.print(count);
+        Serial.print(" ");
+        Serial.print(*startBuff, HEX);
+        Serial.print(" ");
+        Serial.print(*(startBuff + 1), HEX);
+        Serial.print(" ");
       }
     }
     return;
@@ -122,6 +136,14 @@ void CxgCommand::addData(byte data) {
 
   if(isStart && count >= endSize + startSize + 2) {
     if(data == *(endBuff + endSize - 1)) {
+      Serial.print("ed:");
+      Serial.print(count);
+      Serial.print(" ");
+      Serial.print(*endBuff, HEX);
+      Serial.print(" ");
+      Serial.print(*(endBuff + 1), HEX);
+      Serial.print(" ");
+
       //检测结束
       int compareIndex = count - endSize;
       bool isMatch = isMatchEnd(compareIndex);
@@ -130,6 +152,11 @@ void CxgCommand::addData(byte data) {
         if(checkCommand(checkIndex)) {
           isStart = false;
           count = 0;
+          if(resolveCommandParamCallback != NULL) {
+            int len = *(buff + checkIndex);
+            resolveCommandParamCallback(buff, checkIndex - len, len, resolveCommandCallbackParameter);
+            return;
+          }
           //结束
           if(resolveCommandCallback != NULL) {
             int len = *(buff + checkIndex);

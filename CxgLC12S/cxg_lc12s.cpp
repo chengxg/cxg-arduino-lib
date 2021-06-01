@@ -3,7 +3,7 @@
 static JSTime jsTime(0);
 
 //生成校验码
-uint8_t getCheckCode(uint8_t* buf) {
+static uint8_t getCheckCode(uint8_t* buf) {
   int sum = 0;
   for(int i = 0; i < 17; i++) {
     sum += buf[i];
@@ -243,6 +243,7 @@ void CxgLC12S::setLc12s() {
         // Serial.write(d);
         if(i <= 17) {
           readBuf[i] = d;
+          Serial.print(d, HEX);
         }
         i++;
       }

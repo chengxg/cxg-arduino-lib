@@ -12,15 +12,15 @@
 
 class CxgLC12S {
   private:
-  void (*changeBaud)(HardwareSerial* serial, uint32_t baud);
+  void (*changeBaud)(HardwareSerial* serial, uint32_t baud) = NULL;
   //设置波特率
   void setBaud(uint32_t baud);
 
   public:
-  uint8_t setpin;
-  uint8_t cspin;
-  HardwareSerial* serial;     //串口引用
-  boolean isSetting = false;  //是否正在设置LC12S
+  uint8_t setpin = 0;
+  uint8_t cspin = 0;
+  HardwareSerial* serial = NULL;  //串口引用
+  boolean isSetting = false;      //是否正在设置LC12S
   //默认设置参数
   uint8_t setBuf[18] = {
     0xAA, 0x5A, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,

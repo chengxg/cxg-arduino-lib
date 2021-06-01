@@ -1,6 +1,6 @@
 #include "cxg_EventBus.h"
 
-CxgEventBus::CxgEventBus(int intSize = 1) {
+CxgEventBus::CxgEventBus(int intSize) {
   if(intSize > 10) {
     intSize = 10;
   }
@@ -70,6 +70,7 @@ bool CxgEventBus::setSize() {
     arr = newArr;
     arrLen = newArrLen;
   }
+  return true;
 }
 
 bool CxgEventBus::addEvent(char* name, void (*callback)(void* parameter), bool isOnce, bool cover) {
@@ -165,4 +166,12 @@ void CxgEventBus::clearAll() {
   arr = NULL;
   num = 0;
   arrLen = 0;
+}
+
+int CxgEventBus::getNumber() {
+  return num;
+}
+
+int CxgEventBus::getHeapMemorySize() {
+  return sizeof(struct EventBusStruct*) * arrLen + sizeof(struct EventBusStruct) * num;
 }
