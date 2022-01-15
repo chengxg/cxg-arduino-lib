@@ -18,7 +18,7 @@ void setup() {
     if(i == 3) {
       Serial.print("clearTime: ");
       Serial.println(timeId);
-      //清除定时器, 如果不指定timeId,则全部取消
+      //清除定时器
       jsTime.clearTime(timeId);
     }
   },
@@ -44,7 +44,7 @@ void setup() {
     j++;
     if(j == 5) {
       //清除全部定时器
-      bool isClearSuccess = jsTime.clearTime(0);
+      bool isClearSuccess = jsTime.clearAllTime();
       if(isClearSuccess) {
         Serial.println("clear all Success");
         jsTime.setTimeout([]() {

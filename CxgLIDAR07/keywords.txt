@@ -1,0 +1,18 @@
+# class (KEYWORD1)
+CxgLIDAR07	KEYWORD1
+
+# function and method (KEYWORD2)
+refresh	KEYWORD2
+addData	KEYWORD2
+attachUart	KEYWORD2
+attachWire	KEYWORD2
+getVersion	KEYWORD2
+setMeasureInterval	KEYWORD2
+setMeasureMode	KEYWORD2
+setMeasureFilter	KEYWORD2
+getMeasureError	KEYWORD2
+startMeasure	KEYWORD2
+stopMeasure	KEYWORD2
+setMeasureDistanceCallback	KEYWORD2
+
+# Constants (LITERAL1)

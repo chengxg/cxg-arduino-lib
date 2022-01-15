@@ -6,6 +6,7 @@ refresh	KEYWORD2
 setTimeout	KEYWORD2
 setInterval	KEYWORD2
 clearTime	KEYWORD2
+clearAllTime	KEYWORD2
 getNumber	KEYWORD2
 getHeapMemorySize	KEYWORD2
 

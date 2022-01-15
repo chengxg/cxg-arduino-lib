@@ -54,9 +54,7 @@ void CxgBtn::check(boolean (*setBtnActive)()) {
       btnDownStartTime = t;
       isKeydown = true;
       clickCount++;
-      if(t - btnDoubleClickStartTime > btnDoubleTriggerTime / 2) {
-        clickCount = 1;
-      }
+      //记录双击开始时间
       if(clickCount == 1) {
         btnDoubleClickStartTime = t;
       }
@@ -92,19 +90,20 @@ void CxgBtn::check(boolean (*setBtnActive)()) {
       btnTempUpStartTime = 0;
       btnLongPressLastTime = 0;
       isKeydown = false;
+      //第二次单击抬起, 检测是否为双击
+      if(clickCount == 2) {
+        clickCount = 0;
+        if(doubleClickCallback != NULL && t - btnDoubleClickStartTime < btnDoubleTriggerTime) {
+          doubleClickCallback();
+        }
+      }
+      //如果一次单击时间超长,那么双击无效
+      if(t - btnDoubleClickStartTime > btnDoubleTriggerTime / 2) {
+        clickCount = 0;
+      }
       //单击抬起
       if(keyupCallback != NULL) {
         keyupCallback();
-      }
-      //双击
-      if(doubleClickCallback != NULL) {
-        if(clickCount == 2) {
-          if(t - btnDoubleClickStartTime < btnDoubleTriggerTime) {
-            doubleClickCallback();
-          }
-          clickCount = 0;
-          btnDoubleClickStartTime = 0;
-        }
       }
     }
     return;

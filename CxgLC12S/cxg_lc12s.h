@@ -1,8 +1,34 @@
-/*
- * @Author: chengxg
- * @Date: 2021-01-23
- * @Description: LC12S无线模块设置操作库
- * version: 1.0.0
+/*!
+ * @author: chengxg
+ * @date: 2021-01-23
+ * @description: LC12S无线模块设置操作库
+ * @licence The MIT License (MIT)
+ * @copyright Copyright (c) 2022 chengxg (https://github.com/chengxg)
+ * @url https://github.com/chengxg/cxg-arduino-lib/CxgLC12S
+ * @version: 1.0.0
+ * 
+ * @version 2.0.0 2022-01-15
+ * -- 添加软串口支持的回调
+ * 
+ * The MIT License (MIT)
+ *  Copyright (c) 2022 by Chengxg
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
  */
 #ifndef CXG_LC12S_H
 #define CXG_LC12S_H
@@ -12,9 +38,14 @@
 
 class CxgLC12S {
   private:
-  void (*changeBaud)(HardwareSerial* serial, uint32_t baud) = NULL;
   //设置波特率
   void setBaud(uint32_t baud);
+  void (*hardwareSerialChangeBaudCallback)(HardwareSerial* serial, uint32_t baud) = NULL;
+
+  void serialChangeBaud(uint32_t baud);
+  int serialAvailable();
+  int serialWrite(const uint8_t* buffer, size_t size);
+  int serialRead();
 
   public:
   uint8_t setpin = 0;
@@ -25,6 +56,12 @@ class CxgLC12S {
   uint8_t setBuf[18] = {
     0xAA, 0x5A, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
     0x04, 0x00, 0x60, 0x00, 0x00, 0x00, 0x12, 0x00, 0x7C};
+
+  //软串口支持回调
+  void (*serialChangeBaudCallback)(uint32_t baud) = NULL;
+  int (*serialAvailableCallback)() = NULL;
+  int (*serialWriteCallback)(const uint8_t* buffer, size_t size) = NULL;
+  int (*serialReadCallback)() = NULL;
 
   CxgLC12S();
   ~CxgLC12S();
@@ -42,6 +79,15 @@ class CxgLC12S {
    * @param {uint8_t} cspin 片选使能引脚, 低电平使能, 可以不绑定使能引脚, 不绑定传255
    */
   void attach(HardwareSerial* serial, uint32_t baud, uint8_t setpin, void (*changeBaud)(HardwareSerial* serial, uint32_t baud), uint8_t cspin = 255);
+  /**
+   * @Description: 绑定软串口,初始化参数
+   * @param {uint32_t} baud 设置与lc12s的通信波特率
+   * @param {uint8_t} setpin 设置引脚, 如果没有绑定设置引脚,那么也就不需要这个库了
+   * //因为设置模块时使用9600的波特率,正常通信时是别的波特率,需要动态改变波特率
+   * @param {uint8_t} cspin 片选使能引脚, 低电平使能, 可以不绑定使能引脚, 不绑定传255
+   */
+  void attach(uint32_t baud, uint8_t setpin, uint8_t cspin = 255);
+
   //使能模块
   void enable();
   //禁用模块

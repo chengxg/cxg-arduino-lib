@@ -32,10 +32,10 @@ void CxgCommandString::setForwardCallback(bool (*forwardCallback)(char name, cha
 }
 
 void CxgCommandString::resolveCommand(int length) {
-  if(length < 7) {
+  if(length < 5) {
     return;
   }
-  if(*(buff + length - 4) != '|') {
+  if(!(*(buff + length - 3) == '|' || *(buff + length - 6) == '|')) {
     return;
   }
 
@@ -43,54 +43,64 @@ void CxgCommandString::resolveCommand(int length) {
     return;
   }
 
-  char name = *(buff + length - 3);  //最后一个是名称, 就一个字符
-  char verify = 0;                   //最后一个是验证码, 就一个字符
-  int endIndex = length - 4;
+  char name = 0;     //最后一个是名称, 就一个字符
+  char verify1 = 0;  //倒数第二个是验证码, 两个字符 可有可无
+  char verify2 = 0;  //倒数第二个是验证码, 两个字符 可有可无
+  int dataEndIndex = length;
   if(*(buff + length - 6) == '|') {
-    verify = *(buff + length - 5);
-    endIndex = endIndex - 2;
+    //有验证码 和 指令项
+    name = *(buff + length - 5);
+    verify1 = *(buff + length - 3);
+    verify2 = *(buff + length - 2);
+    dataEndIndex = dataEndIndex - 4;
+  } else if(*(buff + length - 3) == '|') {
+    //只有指令项, 无验证码
+    verify1 = 0;
+    verify2 = 0;
+    name = *(buff + length - 2);
+    dataEndIndex = dataEndIndex - 1;
   }
-  if(verify > 0) {
-    int sum = 0;
-    for(int i = 2; i < endIndex; i++) {
+  if(name == 0) {
+    return;
+  }
+  if(verify1 > 0) {
+    uint32_t sum = 0;
+    for(int i = 1; i < dataEndIndex; i++) {
       sum += *(buff + i);
     }
-    char bodyVerify = sum % ('z' - ' ') + ' ';
-    if(bodyVerify != verify) {
+    char bodyVerify1 = (sum & 0x00ff) % ('z' - ' ') + ' ';
+    char bodyVerify2 = ((sum & 0x00ff00) >> 8) % ('z' - ' ') + ' ';
+
+    if(!(bodyVerify1 == verify1 && bodyVerify2 == verify2)) {
       return;
     }
   }
   if(forwardCallback != NULL) {
+    //用于数据转发
     bool isContinue = forwardCallback(name, ( char* )buff, length);
     if(!isContinue) {
       return;
     }
   }
 
-  char body[endIndex] = {0};  //字符串数据部分
-  memset(body, 0, endIndex);
-
-  for(int i = 2; i < endIndex; i++) {
-    body[i - 2] = *(buff + i);
+  char body[dataEndIndex - 2] = {0};  //字符串数据部分
+  memset(body, 0, dataEndIndex - 2);
+  dataEndIndex = dataEndIndex - 2;  //去掉 |name
+  for(int i = 1; i < dataEndIndex; i++) {
+    body[i - 1] = *(buff + i);
   }
 
-  resolveCallback(name, body, endIndex - 2);
+  resolveCallback(name, body, dataEndIndex - 1);
 }
 
 void CxgCommandString::addData(byte data) {
   //重新开始
   if(data == '{') {
-    if(count == 1 || count == 2) {
-      *(buff + 1) = data;
-      count = 2;
-      return;
-    }
-
     *buff = data;
     count = 1;
     return;
   }
-  if(count < 2) {
+  if(count < 1) {
     count = 0;
     return;
   }
@@ -108,54 +118,50 @@ void CxgCommandString::addData(byte data) {
   *(buff + count) = data;
   count++;
 
+  //结束字符
   if(data == '}') {
-    if(*(buff + count - 2) == '}') {
-      resolveCommand(count);
-      count = 0;
-    }
+    resolveCommand(count);
+    count = 0;
   }
 }
 
 //发送指令
 void CxgCommandString::sendCommand(char name, const char* body, bool isVerify) {
   int length = strlen(body);
-  char command[length + 10] = {0};
-  memset(command, 0, length + 10);
+  char command[length + 8] = {0};
+  memset(command, 0, length + 8);
   command[0] = '{';
-  command[1] = '{';
 
   for(int i = 0; i < length; i++) {
-    command[i + 2] = *(body + i);
+    command[i + 1] = *(body + i);
   }
 
   int strLength = 0;
   if(isVerify) {
-    command[length + 2] = '|';
-    command[length + 3] = calcVerify(body, 0, length);
-    command[length + 4] = '|';
-    command[length + 5] = name;
+    command[length + 1] = '|';
+    command[length + 2] = name;
+    //计算校验和
+    uint32_t sum = 0;
+    int verifyLen = length + 3;
+    for(int i = 1; i < verifyLen; i++) {
+      sum += *(command + i);
+    }
+
+    command[length + 3] = '|';
+    command[length + 4] = (sum & 0x00ff) % ('z' - ' ') + ' ';
+    command[length + 5] = ((sum & 0x00ff00) >> 8) % ('z' - ' ') + ' ';
     command[length + 6] = '}';
-    command[length + 7] = '}';
-    strLength = length + 8;
+    strLength = length + 7;
   } else {
-    command[length + 2] = '|';
-    command[length + 3] = name;
-    command[length + 4] = '}';
-    command[length + 5] = '}';
-    strLength = length + 6;
+    command[length + 1] = '|';
+    command[length + 2] = name;
+    command[length + 3] = '}';
+    strLength = length + 4;
   }
 
   if(sendCallback != NULL) {
     sendCallback(command, strLength);
   }
-}
-
-char CxgCommandString::calcVerify(const char* body, int start, int length) {
-  int sum = 0;
-  for(int i = start; i < start + length; i++) {
-    sum += *(body + i);
-  }
-  return sum % ('z' - ' ') + ' ';
 }
 
 /**

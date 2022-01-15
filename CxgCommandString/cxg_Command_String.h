@@ -6,6 +6,10 @@
  * @Author: chengxg
  * @Date: 2021-03-17
  * version: 1.0.0
+ * 
+ * 解析格式变为 {param=value&param1=value1|n(指令名称,一个字符)|vv(验证码两个字符, 可为空)}
+ * version: 2.0.0
+ * @Date: 2022-01-02
  */
 #ifndef CXG_COMMAND_STRING_H_
 #define CXG_COMMAND_STRING_H_
@@ -39,9 +43,6 @@ class CxgCommandString {
 
   //发送指令
   void sendCommand(char name, const char* body, bool isVerify = true);
-
-  //计算验证码
-  char calcVerify(const char* body, int start, int length);
 
   //往里添加数据进行解析
   void addData(byte data);

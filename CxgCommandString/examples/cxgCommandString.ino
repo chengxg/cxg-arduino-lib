@@ -30,7 +30,7 @@ void setup() {
 }
 
 void loop() {
-  //串口助手发送  qwe{{d{{a=123|q}}sdf{{b=123|s}}rty 看看
+  //串口助手发送  qwe{a=123|q}sdf{b=123|s}rty 看看
   while(Serial.available()) {
     //接收指令, 直接跟串口结合
     command.addData(Serial.read());

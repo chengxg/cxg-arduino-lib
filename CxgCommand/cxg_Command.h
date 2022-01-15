@@ -52,5 +52,7 @@ class CxgCommand {
   void addData(byte data);
   //发送指令
   void sendCommand(byte* command, int length);
+  //计算校验和
+  uint32_t getVerifySum(byte* data, int start, int length);
 };
 #endif

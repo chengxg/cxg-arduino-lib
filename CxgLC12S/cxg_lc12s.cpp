@@ -1,3 +1,24 @@
+/*
+ * The MIT License (MIT)
+ *  Copyright (c) 2022 by Chengxg
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ */
 #include "cxg_lc12s.h"
 
 static JSTime jsTime(0);
@@ -34,7 +55,7 @@ void CxgLC12S::refresh() {
 void CxgLC12S::attach(HardwareSerial* serial, uint32_t baud, uint8_t setpin, void (*changeBaud)(HardwareSerial* serial, uint32_t baud), uint8_t cspin) {
   this->serial = serial;
   this->setpin = setpin;
-  this->changeBaud = changeBaud;
+  this->hardwareSerialChangeBaudCallback = changeBaud;
   pinMode(setpin, OUTPUT);
   setBaud(baud);
   //cs引脚不是必须的, 值是255代表没有使能引脚
@@ -42,6 +63,62 @@ void CxgLC12S::attach(HardwareSerial* serial, uint32_t baud, uint8_t setpin, voi
   if(cspin != 255) {
     pinMode(cspin, OUTPUT);
   }
+}
+
+/**
+ * @Description: 绑定软串口,初始化参数
+ * @param {uint32_t} baud 设置与lc12s的通信波特率
+ * @param {uint8_t} setpin 设置引脚, 如果没有绑定设置引脚,那么也就不需要这个库了
+ * //因为设置模块时使用9600的波特率,正常通信时是别的波特率,需要动态改变波特率
+ * @param {uint8_t} cspin 片选使能引脚, 低电平使能, 可以不绑定使能引脚, 不绑定传255
+ */
+void CxgLC12S::attach(uint32_t baud, uint8_t setpin, uint8_t cspin) {
+  this->serial = NULL;
+  this->setpin = setpin;
+  this->hardwareSerialChangeBaudCallback = NULL;
+  pinMode(setpin, OUTPUT);
+  setBaud(baud);
+  //cs引脚不是必须的, 值是255代表没有使能引脚
+  this->cspin = cspin;
+  if(cspin != 255) {
+    pinMode(cspin, OUTPUT);
+  }
+}
+
+void CxgLC12S::serialChangeBaud(uint32_t baud) {
+  if(serial && hardwareSerialChangeBaudCallback) {
+    return hardwareSerialChangeBaudCallback(serial, baud);
+  }
+  if(serialChangeBaudCallback) {
+    return serialChangeBaudCallback(baud);
+  }
+}
+int CxgLC12S::serialAvailable() {
+  if(serial) {
+    return serial->available();
+  }
+  if(serialAvailableCallback) {
+    return serialAvailableCallback();
+  }
+  return 0;
+}
+int CxgLC12S::serialWrite(const uint8_t* buffer, size_t size) {
+  if(serial) {
+    return serial->write(buffer, size);
+  }
+  if(serialWriteCallback) {
+    return serialWriteCallback(buffer, size);
+  }
+  return 0;
+}
+int CxgLC12S::serialRead() {
+  if(serial) {
+    return serial->read();
+  }
+  if(serialReadCallback) {
+    return serialReadCallback();
+  }
+  return 0;
 }
 
 void CxgLC12S::enable() {
@@ -150,7 +227,7 @@ void CxgLC12S::setMeshID(uint16_t id) {
 
 //同步模块的设置参数
 void CxgLC12S::syncParams() {
-  changeBaud(serial, 9600);
+  serialChangeBaud(9600);
   digitalWrite(setpin, 0);
   if(cspin != 255) {
     digitalWrite(cspin, 0);
@@ -166,7 +243,7 @@ void CxgLC12S::syncParams() {
     uint8_t buf[18] = {
       0xAA, 0x5C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x00, 0x18};
-    lc12s->serial->write(buf, 18);
+    lc12s->serialWrite(buf, 18);
     //参数读取需要5ms才能返回
     jsTime.setTimeout([](int p1, void* p2) {
       CxgLC12S* lc12s = ( CxgLC12S* )p2;
@@ -180,9 +257,8 @@ void CxgLC12S::syncParams() {
       int i = 0;
       //写入成功会返回
       //AA 5D A6 31 00 01 00 00 00 04 00 64 00 00 00 12 00 59
-      while(lc12s->serial->available()) {
-        uint8_t d = lc12s->serial->read();
-        // Serial.print(d, HEX);
+      while(lc12s->serialAvailable()) {
+        uint8_t d = lc12s->serialRead();
         if(i <= 17) {
           readBuf[i] = d;
         }
@@ -196,7 +272,7 @@ void CxgLC12S::syncParams() {
         unsigned long baud = lc12s->getBaud();
         if(baud > 0) {
           //更新为新的波特率
-          lc12s->changeBaud(lc12s->serial, baud);
+          lc12s->serialChangeBaud(baud);
           lc12s->enable();
           lc12s->isSetting = false;
         }
@@ -212,7 +288,7 @@ void CxgLC12S::setLc12s() {
   //进入设置模式
   //一旦进入设置状态，指示灯会亮，SET 引脚配置必须是低电平，CS 引脚必须接低电平，
   //且串口设置必须是数据位 8，波特率 9600，校验位 N，停止位 1，空中速率 1Mbps。
-  changeBaud(serial, 9600);
+  serialChangeBaud(9600);
   digitalWrite(setpin, 0);
   if(cspin != 255) {
     digitalWrite(cspin, 0);
@@ -226,7 +302,7 @@ void CxgLC12S::setLc12s() {
     if(lc12s == NULL) {
       return;
     }
-    lc12s->serial->write(lc12s->setBuf, 18);
+    lc12s->serialWrite(lc12s->setBuf, 18);
     //参数写入需要330ms才能返回
     jsTime.setTimeout([](int p1, void* p2) {
       CxgLC12S* lc12s = ( CxgLC12S* )p2;
@@ -238,12 +314,10 @@ void CxgLC12S::setLc12s() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       int i = 0;
       //写入成功会返回 AA 5B A6 31 00 01 00 00 00 04 00 64 00 00 00 12 00 57
-      while(lc12s->serial->available()) {
-        uint8_t d = lc12s->serial->read();
-        // Serial.write(d);
+      while(lc12s->serialAvailable()) {
+        uint8_t d = lc12s->serialRead();
         if(i <= 17) {
           readBuf[i] = d;
-          Serial.print(d, HEX);
         }
         i++;
       }
@@ -253,7 +327,7 @@ void CxgLC12S::setLc12s() {
         unsigned long baud = lc12s->getBaud();
         if(baud > 0) {
           //更新为新的波特率
-          lc12s->changeBaud(lc12s->serial, baud);
+          lc12s->serialChangeBaud(baud);
           lc12s->enable();
           lc12s->isSetting = false;
         }
@@ -266,7 +340,7 @@ void CxgLC12S::setLc12s() {
 
 //得到版本
 void CxgLC12S::getVersion() {
-  changeBaud(serial, 9600);
+  serialChangeBaud(9600);
   digitalWrite(setpin, 0);
   if(cspin != 255) {
     digitalWrite(cspin, 0);
@@ -282,7 +356,7 @@ void CxgLC12S::getVersion() {
     uint8_t buf[18] = {
       0xAA, 0x5D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07};
-    lc12s->serial->write(buf, 18);
+    lc12s->serialWrite(buf, 18);
     //参数读取需要5ms才能返回
     jsTime.setTimeout([](int p1, void* p2) {
       CxgLC12S* lc12s = ( CxgLC12S* )p2;
@@ -293,8 +367,8 @@ void CxgLC12S::getVersion() {
       uint8_t readBuf[3] = {0x00, 0x00, 0x00};
       int i = 0;
       //写入成功会返回 02 00 05（HEX 格式）
-      while(lc12s->serial->available()) {
-        uint8_t d = lc12s->serial->read();
+      while(lc12s->serialAvailable()) {
+        uint8_t d = lc12s->serialRead();
         if(i <= 2) {
           readBuf[i] = d;
         }
@@ -313,7 +387,7 @@ void CxgLC12S::getVersion() {
         unsigned long baud = lc12s->getBaud();
         if(baud > 0) {
           //更新为新的波特率
-          lc12s->changeBaud(lc12s->serial, baud);
+          lc12s->serialChangeBaud(baud);
           lc12s->enable();
           lc12s->isSetting = false;
         }

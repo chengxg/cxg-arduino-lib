@@ -1,7 +1,7 @@
 /*
  *  The MIT License (MIT)
  * 
- *  Copyright (c) 2021 by Chengxg
+ *  Copyright (c) 2021-2022 by Chengxg
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -27,14 +27,15 @@ static unsigned int zero = 0;
 static int timeoutMaxId = ~zero / 2 - 2;       //timeoutId为正数
 static int timeIntervalMinId = -timeoutMaxId;  //timeInterval为负数
 
-JSTime::JSTime(int intSize) {
-  if(intSize > 10) {
-    intSize = 10;
+JSTime::JSTime(int initSize) {
+  if(initSize > 20) {
+    initSize = 20;
   }
-  if(intSize < 1) {
-    intSize = 1;
+  if(initSize < 1) {
+    initSize = 1;
   }
-  arrLen = intSize;
+  num = 0;
+  arrLen = initSize;
   arr = ( struct JSTimeStruct** )malloc(sizeof(struct JSTimeStruct*) * arrLen);
   if(arr != NULL) {
     for(int i = 0; i < arrLen; i++) {
@@ -44,13 +45,24 @@ JSTime::JSTime(int intSize) {
 }
 
 JSTime::~JSTime() {
-  clearTime(0);
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL) {
+      free(arr[i]);
+      arr[i] = NULL;
+    }
+  }
+  if(arr != NULL) {
+    free(arr);
+  }
+  arr = NULL;
+  num = 0;
+  arrLen = 0;
 }
 
 void JSTime::refresh() {
-  unsigned long t = millis();
+  unsigned long t = micros();
   for(int i = 0; i < arrLen; i++) {
-    if(arr[i] != NULL) {
+    if(arr[i] != NULL && arr[i]->id != 0) {
       //时间溢出问题不大
       if(arr[i]->periodTime >= 0 && t - arr[i]->startTime >= arr[i]->periodTime) {
         bool isFree = false;
@@ -69,23 +81,26 @@ void JSTime::refresh() {
           arr[i]->simpleCallback();
         }
         //重新获取时间, 避免回调函数中新增JSTime, 而造成startTime比t大的bug
-        t = millis();
+        t = micros();
         //防止在回调函数里调用了 clearTime 而引发bug
-        if(isFree && arr != NULL && arr[i] != NULL && arr[i]->id == id) {
-          // setTimeout 执行完毕就销毁
-          free(arr[i]);
-          arr[i] = NULL;
+        if(isFree && arr != NULL && i < arrLen && arr[i] != NULL && arr[i]->id == id) {
+          // setTimeout 执行完毕就销毁, id置0假释放, 不用free, 结构体进行下次复用
+          arr[i]->id = 0;
           num--;
         }
       }
     }
   }
+  setSize();
 }
 
 bool JSTime::setSize() {
   //扩容
   if(num > arrLen) {
     int newArrLen = arrLen + arrLen * 0.5 + 1;
+    if(newArrLen < 4) {
+      newArrLen = 4;
+    }
     struct JSTimeStruct** newArr = ( struct JSTimeStruct** )malloc(
       sizeof(struct JSTimeStruct*) * newArrLen);
     if(newArr == NULL) {
@@ -99,6 +114,7 @@ bool JSTime::setSize() {
         newArr[i] = NULL;
       }
     }
+    //释放原来的引用,替换新的引用
     if(arr != NULL) {
       free(arr);
     }
@@ -107,8 +123,8 @@ bool JSTime::setSize() {
   }
 
   //缩容
-  if((arrLen / 2 >= 4) && num <= arrLen / 4) {
-    int newArrLen = arrLen / 2;
+  if(arrLen >= 10 && num <= arrLen / 3) {
+    int newArrLen = arrLen / 2 + 1;
     struct JSTimeStruct** newArr = ( struct JSTimeStruct** )malloc(
       sizeof(struct JSTimeStruct*) * newArrLen);
     if(newArr == NULL) {
@@ -120,7 +136,7 @@ bool JSTime::setSize() {
     }
     int j = 0;
     for(int i = 0; i < arrLen; i++) {
-      if(arr[i] != NULL) {
+      if(arr[i] != NULL && arr[i]->id != 0) {
         newArr[j] = arr[i];
         j++;
       }
@@ -135,36 +151,52 @@ bool JSTime::setSize() {
 }
 
 int JSTime::baseSetTimeout(void (*simpleCallback)(), void (*callback)(int parameterInt, void* parameter), unsigned long time, int parameterInt, void* parameter) {
-  struct JSTimeStruct* t = ( JSTimeStruct* )malloc(sizeof(JSTimeStruct));
+  struct JSTimeStruct* t = NULL;
+  bool isNewStruct = false;
+  for(int i = 0; i < arrLen; i++) {
+    //找出失效的 结构体进行复用
+    if(arr[i] != NULL && arr[i]->id == 0) {
+      t = arr[i];
+      break;
+    }
+  }
+  if(t == NULL) {
+    //没有的话申请一个
+    t = ( JSTimeStruct* )malloc(sizeof(JSTimeStruct));
+    isNewStruct = true;
+  }
+
   t->simpleCallback = simpleCallback;
   t->callback = callback;
   t->parameterInt = parameterInt;
   t->parameter = parameter;
   t->periodTime = time;
-  t->startTime = millis();
+  t->startTime = micros();
   t->isInterval = false;
   if(createTimeoutId > timeoutMaxId) {
     createTimeoutId = 1000;
   }
   createTimeoutId++;
   num++;
-  t->id = createTimeoutId;
-  bool isSuccess = setSize();
-  if(!isSuccess) {
-    free(t);
+  if(!setSize()) {
+    if(isNewStruct) {
+      free(t);
+      t = NULL;
+    }
+    num--;
     return 0;
   }
 
-  //防止id重复
-  bool isDuplicateId = false;
   while(true) {
+    //检测是否有id重复
+    bool isDuplicateId = false;
     for(int i = 0; i < arrLen; i++) {
       if(arr[i] != NULL && arr[i]->id == createTimeoutId) {
         isDuplicateId = true;
         break;
       }
     }
-    //概率极小
+    //有重复的重新分配
     if(isDuplicateId) {
       if(createTimeoutId > timeoutMaxId) {
         createTimeoutId = 1000;
@@ -177,55 +209,83 @@ int JSTime::baseSetTimeout(void (*simpleCallback)(), void (*callback)(int parame
     }
   }
 
-  for(int i = 0; i < arrLen; i++) {
-    if(arr[i] == NULL) {
-      arr[i] = t;
-      return t->id;
+  if(isNewStruct) {
+    for(int i = 0; i < arrLen; i++) {
+      if(arr[i] == NULL) {
+        t->id = createTimeoutId;
+        arr[i] = t;
+        return t->id;
+      }
     }
+  } else {
+    t->id = createTimeoutId;
+    return t->id;
   }
-  free(t);
+
+  if(isNewStruct) {
+    free(t);
+    t = NULL;
+  }
+  num--;
   return 0;
 }
 
-int JSTime::setTimeout(void (*simpleCallback)(), unsigned long time) {
-  return baseSetTimeout(simpleCallback, NULL, time, 0, NULL);
+int JSTime::setTimeout(void (*simpleCallback)(), double time) {
+  return baseSetTimeout(simpleCallback, NULL, time * 1000, 0, NULL);
 }
 
-int JSTime::setTimeout(void (*callback)(int parameterInt, void* parameter), unsigned long time, int parameterInt, void* parameter) {
-  return baseSetTimeout(NULL, callback, time, parameterInt, parameter);
+int JSTime::setTimeout(void (*callback)(int parameterInt, void* parameter), double time, int parameterInt, void* parameter) {
+  return baseSetTimeout(NULL, callback, time * 1000, parameterInt, parameter);
 }
 
 int JSTime::baseSetInterval(void (*simpleCallback)(), void (*callback)(int parameterInt, void* parameter), unsigned long time, int parameterInt, void* parameter) {
-  struct JSTimeStruct* t = ( JSTimeStruct* )malloc(sizeof(JSTimeStruct));
+  struct JSTimeStruct* t = NULL;
+  bool isNewStruct = false;
+  for(int i = 0; i < arrLen; i++) {
+    //找出失效的结构体进行复用
+    if(arr[i] != NULL && arr[i]->id == 0) {
+      t = arr[i];
+      break;
+    }
+  }
+  if(t == NULL) {
+    //没有的话申请一个
+    t = ( JSTimeStruct* )malloc(sizeof(JSTimeStruct));
+    isNewStruct = true;
+  }
+
   t->simpleCallback = simpleCallback;
   t->callback = callback;
   t->parameterInt = parameterInt;
   t->parameter = parameter;
   t->periodTime = time;
-  t->startTime = millis();
+  t->startTime = micros();
   t->isInterval = true;
   if(createTimeIntevalId < timeIntervalMinId) {
     createTimeIntevalId = -1000;
   }
   createTimeIntevalId--;
   num++;
-  t->id = createTimeIntevalId;
-  bool isSuccess = setSize();
-  if(!isSuccess) {
-    free(t);
+
+  if(!setSize()) {
+    if(isNewStruct) {
+      free(t);
+      t = NULL;
+    }
+    num--;
     return 0;
   }
 
-  //防止id重复
-  bool isDuplicateId = false;
   while(true) {
+    //检测是否有id重复
+    bool isDuplicateId = false;
     for(int i = 0; i < arrLen; i++) {
       if(arr[i] != NULL && arr[i]->id == createTimeIntevalId) {
         isDuplicateId = true;
         break;
       }
     }
-    //概率极小
+    //有重复的重新分配
     if(isDuplicateId) {
       if(createTimeIntevalId < timeIntervalMinId) {
         createTimeIntevalId = -1000;
@@ -238,49 +298,95 @@ int JSTime::baseSetInterval(void (*simpleCallback)(), void (*callback)(int param
     }
   }
 
-  for(int i = 0; i < arrLen; i++) {
-    if(arr[i] == NULL) {
-      arr[i] = t;
-      return t->id;
+  if(isNewStruct) {
+    for(int i = 0; i < arrLen; i++) {
+      if(arr[i] == NULL) {
+        t->id = createTimeIntevalId;
+        arr[i] = t;
+        return t->id;
+      }
     }
+  } else {
+    t->id = createTimeIntevalId;
+    return t->id;
   }
-  free(t);
+
+  if(isNewStruct) {
+    free(t);
+    t = NULL;
+  }
+  num--;
   return 0;
 }
 
-int JSTime::setInterval(void (*simpleCallback)(), unsigned long time) {
-  return baseSetInterval(simpleCallback, NULL, time, 0, NULL);
+int JSTime::setInterval(void (*simpleCallback)(), double time) {
+  return baseSetInterval(simpleCallback, NULL, time * 1000, 0, NULL);
 }
 
-int JSTime::setInterval(void (*callback)(int parameterInt, void* parameter), unsigned long time, int parameterInt, void* parameter) {
-  return baseSetInterval(NULL, callback, time, parameterInt, parameter);
+int JSTime::setInterval(void (*callback)(int parameterInt, void* parameter), double time, int parameterInt, void* parameter) {
+  return baseSetInterval(NULL, callback, time * 1000, parameterInt, parameter);
 }
 
-//取消执行 如果不指定timeId,则全部取消, 默认全部取消
+//取消执行
 bool JSTime::clearTime(int timeoutId) {
   if(arrLen == 0) {
     return true;
   }
+  if(timeoutId == 0) {
+    return true;
+  }
   for(int i = 0; i < arrLen; i++) {
     if(arr[i] != NULL) {
-      if(timeoutId == 0 || arr[i]->id == timeoutId) {
-        free(arr[i]);
-        arr[i] = NULL;
+      if(arr[i]->id == timeoutId) {
+        arr[i]->id = 0;
         num--;
-        if(timeoutId != 0) {
-          return true;
+        return true;
+      }
+    }
+  }
+  return setSize();
+}
+
+//取消执行,可以取消多个定时器
+bool JSTime::clearTime(const int* timeoutIds, int start, int length) {
+  if(arrLen == 0) {
+    return true;
+  }
+  if(timeoutIds == NULL) {
+    return true;
+  }
+  if(length == 0) {
+    return true;
+  }
+  int end = start + length;
+  for(int k = start; k < end; k++) {
+    if(timeoutIds[k] == 0) {
+      continue;
+    }
+    for(int i = 0; i < arrLen; i++) {
+      if(arr[i] != NULL) {
+        if(arr[i]->id == timeoutIds[k]) {
+          arr[i]->id = 0;
+          num--;
         }
       }
     }
   }
-  if(timeoutId == 0) {
-    if(arr != NULL) {
-      free(arr);
-    }
-    arr = NULL;
-    num = 0;
-    arrLen = 0;
+  return setSize();
+}
+
+bool JSTime::clearAllTime() {
+  if(arrLen == 0) {
     return true;
+  }
+
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL) {
+      if(arr[i]->id != 0) {
+        arr[i]->id = 0;
+        num--;
+      }
+    }
   }
   return setSize();
 }
@@ -290,5 +396,12 @@ int JSTime::getNumber() {
 }
 
 int JSTime::getHeapMemorySize() {
-  return sizeof(struct JSTimeStruct*) * arrLen + sizeof(struct JSTimeStruct) * num;
+  int sum = sizeof(JSTime) + sizeof(struct JSTimeStruct*) * arrLen;
+  int timeSize = sizeof(struct JSTimeStruct);
+  for(int i = 0; i < arrLen; i++) {
+    if(arr[i] != NULL) {
+      sum += timeSize;
+    }
+  }
+  return sum;
 }

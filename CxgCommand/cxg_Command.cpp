@@ -101,8 +101,6 @@ void CxgCommand::setSendCommandCallback(void (*sendCommand)(byte* buff, int leng
 }
 
 void CxgCommand::addData(byte data) {
-  Serial.print(data, HEX);
-  Serial.print(" ");
   if(!isStart) {
     if(count == 0 && data != *startBuff) {
       return;
@@ -114,13 +112,6 @@ void CxgCommand::addData(byte data) {
       bool isMatch = isMatchStart(count - startSize);
       if(isMatch) {
         isStart = true;
-        Serial.print("st:");
-        Serial.print(count);
-        Serial.print(" ");
-        Serial.print(*startBuff, HEX);
-        Serial.print(" ");
-        Serial.print(*(startBuff + 1), HEX);
-        Serial.print(" ");
       }
     }
     return;
@@ -136,14 +127,6 @@ void CxgCommand::addData(byte data) {
 
   if(isStart && count >= endSize + startSize + 2) {
     if(data == *(endBuff + endSize - 1)) {
-      Serial.print("ed:");
-      Serial.print(count);
-      Serial.print(" ");
-      Serial.print(*endBuff, HEX);
-      Serial.print(" ");
-      Serial.print(*(endBuff + 1), HEX);
-      Serial.print(" ");
-
       //检测结束
       int compareIndex = count - endSize;
       bool isMatch = isMatchEnd(compareIndex);
@@ -180,4 +163,14 @@ void CxgCommand::sendCommand(byte* command, int length) {
   byte lengthByte = length;
   sendCommandCallback(&lengthByte, 1);
   sendCommandCallback(endBuff, endSize);
+}
+
+uint32_t CxgCommand::getVerifySum(byte* data, int start, int length) {
+  //计算校验和
+  uint32_t sum = 0;
+  int end = start + length;
+  for(int i = start; i < end; i++) {
+    sum += *(data + i);
+  }
+  return sum;
 }
