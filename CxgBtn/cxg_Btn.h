@@ -4,6 +4,9 @@
  * @Author: chengxg
  * @Date: 2021-01-15
  * version: 1.0.0
+ * 
+ * version: 1.1.0
+ * -- 解决某些情况下, 双击失效的bug
  */
 #ifndef CXG_BTN_H_
 #define CXG_BTN_H_
@@ -13,9 +16,9 @@
 class CxgBtn {
   private:
   unsigned long btnTempDownStartTime;     //开始按下的时间
-  unsigned long btnTempUpStartTime;       //开始按下的时间
+  unsigned long btnTempUpStartTime;       //开始抬起的时间
   unsigned long btnDownStartTime;         //开始按下的时间
-  unsigned long btnUpStartTime;           //开始按下的时间
+  unsigned long btnUpStartTime;           //开始抬起的时间
   unsigned long btnLongPressLastTime;     //上次长按触发的时间
   unsigned long btnDoubleClickStartTime;  //双击开始时间
 
